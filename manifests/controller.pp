@@ -136,13 +136,11 @@ class openstack::controller (
   # VNC
   $vnc_enabled             = true,
   $vncproxy_host           = false,
-  # cinder
+  # Cinder
   # if the cinder management components should be installed
   $cinder                  = true,
-  $cinder_db_user          = 'cinder',
-  $cinder_db_dbname        = 'cinder',
-  # quantum
-  $quantum                 = false,
+  $cinder_user_name        = 'cinder',
+  $cinder_user_password    = 'cinder_pass',
   # Quantum
   $quantum                 = true,
   $bridge_interface        = undef,
@@ -363,7 +361,7 @@ class openstack::controller (
     class { 'openstack::cinder::controller':
       bind_host		       => $bind_host,
       keystone_auth_host => $keystone_host,
-      keystone_user	     => $cinder_keystone_user,
+      keystone_user	     => $cinder_user_name,
       keystone_password  => $cinder_user_password,
       rabbit_password    => $rabbit_password,
       rabbit_host        => $rabbit_host,
