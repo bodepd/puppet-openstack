@@ -18,12 +18,22 @@
 class openstack::compute (
   # Required Network
   $internal_address,
-  # Required Nova
-  $nova_user_password,
-  # Required Rabbit
+  # Required Passwords
   $rabbit_password,
+  $nova_user_password,
+  $nova_db_password,
+  $cinder_db_password,
+  $quantum_user_password,
+  $quantum_db_password,
   # DB
-  $sql_connection,
+  $db_type                       = 'mysql',
+  $db_host                       = '127.0.0.1',
+  # Nova Database
+  $nova_db_user                  = 'nova',
+  $nova_db_name                  = 'nova',
+  # Quantum Database
+  $quantum_db_name               = 'quantum',
+  $quantum_db_user               = 'quantum',
   # Network
   $public_interface              = undef,
   $private_interface             = undef,
@@ -33,17 +43,23 @@ class openstack::compute (
   $multi_host                    = false,
   $enabled_apis                  = 'ec2,osapi_compute,metadata',
   # Quantum
-  $quantum                       = false,
-  $quantum_host                  = false,
-  $quantum_user_password         = false,
-  $keystone_host                 = false,
+  $quantum                       = true,
+  $enable_quantum_server         = false,
+  $enable_ovs_agent              = undef,
+  $enable_l3_agent               = undef,
+  $enable_dhcp_agent             = undef,
+  $quantum_l3_auth_url           = "http://${keystone_host}:35357/v2.0",
+  $keystone_host                 = '127.0.0.1',
+  $bridge_interface              = $public_interface,
   # Nova
+  $api_bind_address              = '0.0.0.0',
   $nova_admin_tenant_name        = 'services',
   $nova_admin_user               = 'nova',
+  $libvirt_vif_driver            = 'nova.virt.libvirt.vif.LibvirtOpenVswitchDriver',
   $purge_nova_config             = true,
   # Rabbit
   $rabbit_host                   = '127.0.0.1',
-  $rabbit_user                   = 'nova',
+  $rabbit_user                   = 'rabbit_user',
   $rabbit_virtual_host           = '/',
   # Glance
   $glance_api_servers            = false,
@@ -55,15 +71,25 @@ class openstack::compute (
   $vncserver_listen              = false,
   # cinder / volumes
   $cinder                        = true,
-  $cinder_sql_connection         = undef,
+  $cinder_db_user                = 'cinder',
+  $cinder_db_name                = 'cinder',
   $manage_volumes                = true,
   $volume_group                  = 'cinder-volumes',
-  $iscsi_ip_address              = '127.0.0.1',
+  $iscsi_ip_address              = $internal_address,
   # General
   $migration_support             = false,
   $verbose                       = 'False',
   $enabled                       = true
 ) {
+
+  # Configure the db string
+  case $db_type {
+    'mysql': {
+      $nova_sql_connection = "mysql://${nova_db_user}:${nova_db_password}@${db_host}/${nova_db_name}"
+      $cinder_sql_connection = "mysql://${cinder_db_user}:${cinder_db_password}@${db_host}/${cinder_db_name}"
+      $quantum_sql_connection = "mysql://${quantum_db_user}:${quantum_db_password}@${db_host}/${quantum_db_name}?charset=utf8"
+    }
+  }
 
   if $vncserver_listen {
     $vncserver_listen_real = $vncserver_listen
@@ -85,14 +111,14 @@ class openstack::compute (
   }
 
   class { 'nova':
-    sql_connection      => $sql_connection,
+    sql_connection      => $nova_sql_connection,
     rabbit_userid       => $rabbit_user,
     rabbit_password     => $rabbit_password,
+    rabbit_host         => $rabbit_host,
+    rabbit_virtual_host => $rabbit_virtual_host,
     image_service       => 'nova.image.glance.GlanceImageService',
     glance_api_servers  => $glance_api_servers,
     verbose             => $verbose,
-    rabbit_host         => $rabbit_host,
-    rabbit_virtual_host => $rabbit_virtual_host,
   }
 
   # Install / configure nova-compute
@@ -156,8 +182,8 @@ class openstack::compute (
     }
   } else {
 
-    if ! $quantum_host {
-      fail('quantum host must be specified when quantum is installed on compute instances')
+    if ! $quantum_sql_connection {
+      fail('quantum sql connection must be specified when quantum is installed on compute instances')
     }
     if ! $quantum_user_password {
       fail('quantum user password must be set when quantum is configured')
@@ -166,31 +192,45 @@ class openstack::compute (
       fail('keystone host must be configured when quantum is installed')
     }
 
-    class { 'quantum':
-      verbose         => $verbose,
-      debug           => $verbose,
-      rabbit_host     => $rabbit_host,
-      rabbit_user     => $rabbit_user,
-      rabbit_password => $rabbit_password,
-      #sql_connection  => $quantum_sql_connection,
+    class { 'openstack::quantum':
+      # Database
+      db_host               => $db_host,
+      # Networking
+      ovs_local_ip          => $internal_address,
+      # Rabbit
+      rabbit_host           => $rabbit_host,
+      rabbit_user           => $rabbit_user,
+      rabbit_password       => $rabbit_password,
+      # Quantum OVS
+      bridge_interface      => $bridge_interface,
+      enable_ovs_agent      => $enable_ovs_agent,
+      # Database
+      db_name     	    => $quantum_db_name,
+      db_user       	    => $quantum_db_user,
+      db_password   	    => $quantum_db_password,
+      # Quantum L3 Agent
+      enable_l3_agent       => $enable_l3_agent,
+      enable_dhcp_agent     => $enable_dhcp_agent,
+      l3_auth_url   	    => $quantum_l3_auth_url,
+      user_password 	    => $quantum_user_password,
+      # Keystone 
+      keystone_host         => $keystone_host,
+      # General
+      enabled               => $enabled,
+      enable_server         => $enable_quantum_server,
     }
 
-    class { 'quantum::agents::ovs':
-      enable_tunneling => true,
-      local_ip         => $internal_address,
+    class { 'nova::compute::quantum':
+      libvirt_vif_driver => $libvirt_vif_driver,
     }
 
-    class { 'nova::compute::quantum': }
-
-    # does this have to be installed on the compute node?
-    # NOTE
+    # Configures nova.conf entries applicable to Quantum.
     class { 'nova::network::quantum':
       quantum_admin_password    => $quantum_user_password,
       quantum_auth_strategy     => 'keystone',
       quantum_url               => "http://${keystone_host}:9696",
       quantum_admin_tenant_name => 'services',
-      quantum_admin_username    => 'quantum',
-      quantum_admin_auth_url    => "http://${keystone_host}:35357/v2.0"
+      quantum_admin_auth_url    => "http://${keystone_host}:35357/v2.0",
     }
 
     nova_config {
@@ -200,16 +240,15 @@ class openstack::compute (
   }
 
   if ($cinder) {
-    class { 'cinder::base':
-      rabbit_password => $rabbit_password,
-      rabbit_host     => $rabbit_host,
-      sql_connection  => $cinder_sql_connection,
-      verbose         => $verbose,
-    }
-    class { 'cinder::volume': }
-    class { 'cinder::volume::iscsi':
-      iscsi_ip_address => $iscsi_ip_address,
-      volume_group     => $volume_group,
+    class { 'openstack::cinder::storage':
+      sql_connection      => $cinder_sql_connection,
+      rabbit_password     => $rabbit_password,
+      rabbit_userid       => $rabbit_user,
+      rabbit_host         => $rabbit_host,
+      rabbit_virtual_host => $rabbit_virtual_host, 
+      volume_group        => $volume_group, 
+      iscsi_ip_address    => $internal_address,
+      enabled             => $enabled
     }
 
     # set in nova::api
@@ -218,6 +257,8 @@ class openstack::compute (
     }
   } else {
     # Set up nova-volume
+      nova_config { 'DEFAULT/volume_api_class': value => 'nova.volume.api.API' }
+      nova_config { 'DEFAULT/enabled_apis': value => 'ec2,osapi_compute,osapi_volume,metadata' }
   }
 
 }

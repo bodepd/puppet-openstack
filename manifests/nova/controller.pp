@@ -85,7 +85,7 @@ class openstack::nova::controller (
   } else {
     $vncproxy_host_real = $public_address
   }
-  
+
   $sql_connection    = $nova_db
   $glance_connection = $real_glance_api_servers
   $rabbit_connection = $internal_address
@@ -181,6 +181,7 @@ class openstack::nova::controller (
     'nova::objectstore',
     'nova::cert',
     'nova::consoleauth'
+    'nova::conductor':
   ]:
     enabled => $enabled,
   }
