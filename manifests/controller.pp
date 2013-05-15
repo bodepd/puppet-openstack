@@ -156,6 +156,7 @@ class openstack::controller (
   $quantum_l3_auth_url     = "http://127.0.0.1:35357/v2.0",
   $enable_quantum_server   = true,
   $ovs_local_ip            = '127.0.0.1',
+  $api_bind_address        = '0.0.0.0',
   $enabled                 = true
 ) {
 
@@ -244,6 +245,7 @@ class openstack::controller (
     quantum               => $quantum,
     quantum_user_password => $quantum_user_password,
     enabled               => $enabled,
+    bind_host                => $api_bind_address,
   }
 
 
