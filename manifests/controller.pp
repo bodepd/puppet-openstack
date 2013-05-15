@@ -136,8 +136,6 @@ class openstack::controller (
   # VNC
   $vnc_enabled             = true,
   $vncproxy_host           = false,
-  # General
-  $verbose                 = 'False',
   # cinder
   # if the cinder management components should be installed
   $cinder                  = true,
@@ -157,7 +155,9 @@ class openstack::controller (
   $quantum_l3_auth_url     = "http://127.0.0.1:35357/v2.0",
   $enable_quantum_server   = true,
   $ovs_local_ip            = '127.0.0.1',
+  # General
   $api_bind_address        = '0.0.0.0',
+  $verbose                 = 'False',
   $enabled                 = true
 ) {
 
