@@ -91,6 +91,7 @@ class openstack::controller (
   $mysql_bind_address      = '0.0.0.0',
   $allowed_hosts           = '%',
   # Keystone
+  $keystone_host           = '127.0.0.1',
   $keystone_db_user        = 'keystone',
   $keystone_db_dbname      = 'keystone',
   $keystone_admin_tenant   = 'admin',
@@ -245,7 +246,14 @@ class openstack::controller (
     quantum               => $quantum,
     quantum_user_password => $quantum_user_password,
     enabled               => $enabled,
+    public_address           => $keystone_host,
+    internal_address         => $keystone_host,
+    admin_address            => $keystone_host,
     bind_host                => $api_bind_address,
+    glance_public_address    => $keystone_host,
+    nova_public_address      => $keystone_host,
+    cinder_public_address    => $keystone_host,
+    quantum_public_address   => $keystone_host,
   }
 
 
