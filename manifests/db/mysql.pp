@@ -73,9 +73,9 @@ class openstack::db::mysql (
   }
 
   # This removes default users and guest access
-  if $mysql_account_security {
-    class { 'mysql::server::account_security': }
-  }
+  #if $mysql_account_security {
+  #  class { 'mysql::server::account_security': }
+  #}
 
   if ($enabled) {
     # Create the Keystone db
