@@ -312,9 +312,11 @@ class openstack::controller (
     rabbit_virtual_host     => $rabbit_virtual_host,
     # Glance
     glance_api_servers      => $glance_api_servers,
+    # Keystone
+    keystone_host           => $keystone_host,
     # VNC
-    vnc_enabled            => $vnc_enabled,
-    vncproxy_host          => $vncproxy_host_real,
+    vnc_enabled             => $vnc_enabled,
+    vncproxy_host           => $vncproxy_host_real,
     # General
     verbose                 => $verbose,
     enabled                 => $enabled,
